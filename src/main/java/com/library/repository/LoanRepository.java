@@ -15,6 +15,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.library.dto.report.TopBookResponse;
 import com.library.entity.Loan;
 import com.library.enums.LoanStatus;
 
@@ -64,6 +65,20 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
 	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
 	List<Loan> findByIdIn(Collection<Long> ids);
+
+	@Query("""
+			select new com.library.dto.report.TopBookResponse(b.id, b.title, b.author, count(l))
+			from Loan l join l.copy c join c.book b
+			where l.issueDate between :from and :to
+			group by b.id, b.title, b.author
+			order by count(l) desc, b.title asc
+			""")
+	List<TopBookResponse> findTopBorrowedBooks(@Param("from") LocalDate from, @Param("to") LocalDate to,
+			Pageable pageable);
+
+	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
+	@Query("select l from Loan l where l.returnDate is null and l.dueDate < :today")
+	Page<Loan> findOverdueLoans(@Param("today") LocalDate today, Pageable pageable);
 
 	@Override
 	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
