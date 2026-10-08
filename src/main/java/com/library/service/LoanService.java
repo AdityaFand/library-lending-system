@@ -23,9 +23,11 @@ import com.library.enums.Role;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.BookCopyRepository;
+import com.library.repository.BookRepository;
 import com.library.repository.LoanRepository;
 import com.library.repository.ReservationRepository;
 import com.library.repository.UserRepository;
+import com.library.security.CurrentUserProvider;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,15 +36,18 @@ import lombok.RequiredArgsConstructor;
 public class LoanService {
 
 	static final int LOAN_PERIOD_DAYS = 14;
+	static final int RENEWAL_DAYS = 7;
 	static final int MAX_ACTIVE_LOANS = 5;
 	static final List<LoanStatus> OPEN_STATUSES = List.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
 
 	private final LoanRepository loanRepository;
 	private final BookCopyRepository copyRepository;
+	private final BookRepository bookRepository;
 	private final UserRepository userRepository;
 	private final ReservationRepository reservationRepository;
 	private final ReservationService reservationService;
 	private final FineCalculator fineCalculator;
+	private final CurrentUserProvider currentUserProvider;
 	private final Clock clock;
 
 	@Transactional
@@ -97,6 +102,40 @@ public class LoanService {
 		loan.setStatus(LoanStatus.RETURNED);
 
 		reservationService.assignCopyToNextInLine(copy);
+
+		return LoanResponse.from(loan);
+	}
+
+	@Transactional
+	public LoanResponse renew(Long id) {
+		User currentUser = currentUserProvider.getCurrentUser();
+
+		Loan loan = loanRepository.findByIdForUpdate(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Loan not found with id " + id));
+		if (currentUser.getRole() == Role.MEMBER && !loan.getMember().getId().equals(currentUser.getId())) {
+			throw new ResourceNotFoundException("Loan not found with id " + id);
+		}
+
+		if (loan.getStatus() == LoanStatus.RETURNED) {
+			throw new BusinessException("Loan " + id + " is already returned");
+		}
+		if (loan.isRenewed()) {
+			throw new BusinessException("Loan can be renewed only once");
+		}
+
+		LocalDate today = LocalDate.now(clock);
+		if (loan.getStatus() == LoanStatus.OVERDUE || loan.getDueDate().isBefore(today)) {
+			throw new BusinessException("Overdue loans cannot be renewed");
+		}
+
+		Long bookId = loan.getCopy().getBook().getId();
+		bookRepository.findByIdForUpdate(bookId);
+		if (reservationRepository.existsByBookIdAndStatus(bookId, ReservationStatus.WAITING)) {
+			throw new BusinessException("Loan cannot be renewed because another member has reserved this book");
+		}
+
+		loan.setDueDate(loan.getDueDate().plusDays(RENEWAL_DAYS));
+		loan.setRenewed(true);
 
 		return LoanResponse.from(loan);
 	}

@@ -48,6 +48,13 @@ public class LoanController {
 		return loanService.returnLoan(id);
 	}
 
+	@PostMapping("/{id}/renew")
+	@PreAuthorize("hasAnyRole('LIBRARIAN', 'MEMBER')")
+	@Operation(summary = "Renew a loan once for 7 days if it is not overdue and nobody has reserved the book (members: own loans only)")
+	public LoanResponse renew(@PathVariable Long id) {
+		return loanService.renew(id);
+	}
+
 	@GetMapping("/{id}")
 	@Operation(summary = "View a loan")
 	public LoanResponse getById(@PathVariable Long id) {
