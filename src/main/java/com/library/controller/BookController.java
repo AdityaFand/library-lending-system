@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -68,10 +69,14 @@ public class BookController {
 	}
 
 	@GetMapping
-	@Operation(summary = "List books with pagination and sorting")
-	public PageResponse<BookResponse> list(
+	@Operation(summary = "Search books by title (partial), author (partial), category and availability")
+	public PageResponse<BookResponse> search(
+			@RequestParam(required = false) String title,
+			@RequestParam(required = false) String author,
+			@RequestParam(required = false) String category,
+			@RequestParam(required = false) Boolean available,
 			@ParameterObject @PageableDefault(size = 10, sort = "title", direction = Sort.Direction.ASC) Pageable pageable) {
-		return bookService.list(pageable);
+		return bookService.search(title, author, category, available, pageable);
 	}
 
 	@PostMapping("/{id}/copies")

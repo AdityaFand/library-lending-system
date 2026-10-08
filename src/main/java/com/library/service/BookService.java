@@ -25,6 +25,7 @@ import com.library.repository.BookRepository;
 import com.library.repository.CopyCountView;
 import com.library.repository.LoanRepository;
 import com.library.repository.ReservationRepository;
+import com.library.specification.BookSpecifications;
 
 import lombok.RequiredArgsConstructor;
 
@@ -78,8 +79,10 @@ public class BookService {
 	}
 
 	@Transactional(readOnly = true)
-	public PageResponse<BookResponse> list(Pageable pageable) {
-		return toPageResponse(bookRepository.findAll(pageable));
+	public PageResponse<BookResponse> search(String title, String author, String category, Boolean available,
+			Pageable pageable) {
+		return toPageResponse(bookRepository.findAll(
+				BookSpecifications.search(title, author, category, available), pageable));
 	}
 
 	@Transactional
