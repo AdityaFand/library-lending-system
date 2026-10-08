@@ -103,9 +103,12 @@ public class BookService {
 	}
 
 	@Transactional(readOnly = true)
-	public PageResponse<CopyResponse> listCopies(Long bookId, Pageable pageable) {
+	public PageResponse<CopyResponse> listCopies(Long bookId, CopyStatus status, Pageable pageable) {
 		findBook(bookId);
-		return PageResponse.from(copyRepository.findByBookId(bookId, pageable).map(CopyResponse::from));
+		Page<BookCopy> copies = status == null
+				? copyRepository.findByBookId(bookId, pageable)
+				: copyRepository.findByBookIdAndStatus(bookId, status, pageable);
+		return PageResponse.from(copies.map(CopyResponse::from));
 	}
 
 	Book findBook(Long id) {
