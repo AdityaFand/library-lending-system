@@ -41,6 +41,8 @@ public class LoanService {
 	private final BookCopyRepository copyRepository;
 	private final UserRepository userRepository;
 	private final ReservationRepository reservationRepository;
+	private final ReservationService reservationService;
+	private final FineCalculator fineCalculator;
 	private final Clock clock;
 
 	@Transactional
@@ -76,6 +78,27 @@ public class LoanService {
 		loan.setStatus(LoanStatus.ACTIVE);
 
 		return LoanResponse.from(loanRepository.save(loan));
+	}
+
+	@Transactional
+	public LoanResponse returnLoan(Long id) {
+		Loan loan = loanRepository.findByIdForUpdate(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Loan not found with id " + id));
+		if (loan.getStatus() == LoanStatus.RETURNED) {
+			throw new BusinessException("Loan " + id + " is already returned");
+		}
+
+		BookCopy copy = copyRepository.findByIdForUpdate(loan.getCopy().getId())
+				.orElseThrow(() -> new ResourceNotFoundException("Copy not found"));
+
+		LocalDate today = LocalDate.now(clock);
+		loan.setReturnDate(today);
+		loan.setFine(fineCalculator.calculate(loan.getDueDate(), today, copy.getBook().getPrice()));
+		loan.setStatus(LoanStatus.RETURNED);
+
+		reservationService.assignCopyToNextInLine(copy);
+
+		return LoanResponse.from(loan);
 	}
 
 	private void closeReservationForIssue(BookCopy copy, User member) {

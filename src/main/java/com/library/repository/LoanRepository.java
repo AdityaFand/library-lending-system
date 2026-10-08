@@ -9,13 +9,20 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.library.entity.Loan;
 import com.library.enums.LoanStatus;
 
+import jakarta.persistence.LockModeType;
+
 public interface LoanRepository extends JpaRepository<Loan, Long> {
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select l from Loan l where l.id = :id")
+	Optional<Loan> findByIdForUpdate(@Param("id") Long id);
 
 	boolean existsByCopyBookId(Long bookId);
 

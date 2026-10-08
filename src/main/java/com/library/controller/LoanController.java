@@ -42,6 +42,12 @@ public class LoanController {
 		return loanService.issue(request);
 	}
 
+	@PostMapping("/{id}/return")
+	@Operation(summary = "Return a loan, calculate the fine and pass the copy to the next reservation")
+	public LoanResponse returnLoan(@PathVariable Long id) {
+		return loanService.returnLoan(id);
+	}
+
 	@GetMapping("/{id}")
 	@Operation(summary = "View a loan")
 	public LoanResponse getById(@PathVariable Long id) {
