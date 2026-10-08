@@ -24,6 +24,7 @@ import com.library.dto.book.AddCopiesRequest;
 import com.library.dto.book.BookRequest;
 import com.library.dto.book.BookResponse;
 import com.library.dto.book.CopyResponse;
+import com.library.enums.CopyStatus;
 import com.library.service.BookService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -88,9 +89,10 @@ public class BookController {
 	}
 
 	@GetMapping("/{id}/copies")
-	@Operation(summary = "List copies of a book with their status")
+	@Operation(summary = "List copies of a book, optionally filtered by status")
 	public PageResponse<CopyResponse> listCopies(@PathVariable Long id,
+			@RequestParam(required = false) CopyStatus status,
 			@ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable) {
-		return bookService.listCopies(id, pageable);
+		return bookService.listCopies(id, status, pageable);
 	}
 }

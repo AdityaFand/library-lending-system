@@ -37,6 +37,7 @@ public class BookService {
 	private final BookCopyRepository copyRepository;
 	private final LoanRepository loanRepository;
 	private final ReservationRepository reservationRepository;
+	private final ReservationService reservationService;
 
 	@Transactional
 	public BookResponse create(BookRequest request) {
@@ -87,7 +88,8 @@ public class BookService {
 
 	@Transactional
 	public List<CopyResponse> addCopies(Long bookId, int count) {
-		Book book = findBook(bookId);
+		Book book = bookRepository.findByIdForUpdate(bookId)
+				.orElseThrow(() -> new ResourceNotFoundException("Book not found with id " + bookId));
 
 		List<BookCopy> copies = new ArrayList<>();
 		for (int i = 0; i < count; i++) {
@@ -97,15 +99,21 @@ public class BookService {
 			copies.add(copy);
 		}
 
-		return copyRepository.saveAll(copies).stream()
+		List<BookCopy> saved = copyRepository.saveAll(copies);
+		saved.forEach(reservationService::assignCopyToNextInLine);
+
+		return saved.stream()
 				.map(CopyResponse::from)
 				.toList();
 	}
 
 	@Transactional(readOnly = true)
-	public PageResponse<CopyResponse> listCopies(Long bookId, Pageable pageable) {
+	public PageResponse<CopyResponse> listCopies(Long bookId, CopyStatus status, Pageable pageable) {
 		findBook(bookId);
-		return PageResponse.from(copyRepository.findByBookId(bookId, pageable).map(CopyResponse::from));
+		Page<BookCopy> copies = status == null
+				? copyRepository.findByBookId(bookId, pageable)
+				: copyRepository.findByBookIdAndStatus(bookId, status, pageable);
+		return PageResponse.from(copies.map(CopyResponse::from));
 	}
 
 	Book findBook(Long id) {

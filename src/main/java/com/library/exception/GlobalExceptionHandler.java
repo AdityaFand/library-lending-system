@@ -4,7 +4,10 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.hibernate.query.SemanticException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +16,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -43,9 +47,30 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.badRequest().body(body);
 	}
 
+	@ExceptionHandler(BadRequestException.class)
+	public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
+		return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+	}
+
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
+		return build(HttpStatus.BAD_REQUEST, "Missing required parameter '" + ex.getParameterName() + "'");
+	}
+
 	@ExceptionHandler(PropertyReferenceException.class)
 	public ResponseEntity<ErrorResponse> handleInvalidSort(PropertyReferenceException ex) {
 		return build(HttpStatus.BAD_REQUEST, "Invalid sort property: " + ex.getPropertyName());
+	}
+
+	@ExceptionHandler(InvalidDataAccessApiUsageException.class)
+	public ResponseEntity<ErrorResponse> handleInvalidQueryUsage(InvalidDataAccessApiUsageException ex) {
+		for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+			if (cause instanceof SemanticException) {
+				return build(HttpStatus.BAD_REQUEST, "Invalid sort property");
+			}
+		}
+		log.error("Unexpected data access error", ex);
+		return build(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong");
 	}
 
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -71,6 +96,11 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)
 	public ResponseEntity<ErrorResponse> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
 		return build(HttpStatus.CONFLICT, "The record was modified by another request, please retry");
+	}
+
+	@ExceptionHandler(PessimisticLockingFailureException.class)
+	public ResponseEntity<ErrorResponse> handlePessimisticLock(PessimisticLockingFailureException ex) {
+		return build(HttpStatus.CONFLICT, "The record is busy with another request, please retry");
 	}
 
 	@ExceptionHandler(DataIntegrityViolationException.class)
