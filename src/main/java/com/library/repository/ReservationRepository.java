@@ -47,6 +47,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	long countAhead(@Param("bookId") Long bookId, @Param("createdAt") LocalDateTime createdAt, @Param("id") Long id);
 
 	@EntityGraph(attributePaths = { "book", "member", "heldCopy" })
+	Page<Reservation> findByMemberId(Long memberId, Pageable pageable);
+
+	@EntityGraph(attributePaths = { "book", "member", "heldCopy" })
+	Page<Reservation> findByMemberIdAndStatus(Long memberId, ReservationStatus status, Pageable pageable);
+
+	@EntityGraph(attributePaths = { "book", "member", "heldCopy" })
 	@Query("""
 			select r from Reservation r
 			where (:status is null or r.status = :status)

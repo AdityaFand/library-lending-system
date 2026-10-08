@@ -1,5 +1,6 @@
 package com.library.repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -52,4 +53,15 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
 	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
 	Page<Loan> findByStatus(LoanStatus status, Pageable pageable);
+
+	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
+	Page<Loan> findByMemberId(Long memberId, Pageable pageable);
+
+	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
+	Page<Loan> findByMemberIdAndStatus(Long memberId, LoanStatus status, Pageable pageable);
+
+	@Query("select coalesce(sum(l.fine), 0) from Loan l where l.member.id = :memberId")
+	BigDecimal sumFinesByMemberId(@Param("memberId") Long memberId);
+
+	long countByMemberIdAndFineGreaterThan(Long memberId, BigDecimal amount);
 }
