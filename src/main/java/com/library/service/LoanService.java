@@ -14,14 +14,17 @@ import com.library.dto.loan.IssueLoanRequest;
 import com.library.dto.loan.LoanResponse;
 import com.library.entity.BookCopy;
 import com.library.entity.Loan;
+import com.library.entity.Reservation;
 import com.library.entity.User;
 import com.library.enums.CopyStatus;
 import com.library.enums.LoanStatus;
+import com.library.enums.ReservationStatus;
 import com.library.enums.Role;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.BookCopyRepository;
 import com.library.repository.LoanRepository;
+import com.library.repository.ReservationRepository;
 import com.library.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,7 @@ public class LoanService {
 	private final LoanRepository loanRepository;
 	private final BookCopyRepository copyRepository;
 	private final UserRepository userRepository;
+	private final ReservationRepository reservationRepository;
 	private final Clock clock;
 
 	@Transactional
@@ -60,9 +64,7 @@ public class LoanService {
 			throw new BusinessException("Member already has " + MAX_ACTIVE_LOANS + " active loans");
 		}
 
-		if (copy.getStatus() != CopyStatus.AVAILABLE) {
-			throw new BusinessException("Copy " + copy.getId() + " is not available, current status is " + copy.getStatus());
-		}
+		closeReservationForIssue(copy, member);
 
 		copy.setStatus(CopyStatus.ISSUED);
 
@@ -74,6 +76,33 @@ public class LoanService {
 		loan.setStatus(LoanStatus.ACTIVE);
 
 		return LoanResponse.from(loanRepository.save(loan));
+	}
+
+	private void closeReservationForIssue(BookCopy copy, User member) {
+		Long bookId = copy.getBook().getId();
+
+		if (copy.getStatus() == CopyStatus.RESERVED) {
+			Reservation held = reservationRepository.findByHeldCopyIdAndStatus(copy.getId(), ReservationStatus.READY)
+					.orElseThrow(() -> new BusinessException("Copy " + copy.getId() + " is reserved but has no ready reservation"));
+			if (!held.getMember().getId().equals(member.getId())) {
+				throw new BusinessException("Copy " + copy.getId() + " is held for another member");
+			}
+			held.setStatus(ReservationStatus.FULFILLED);
+			return;
+		}
+
+		if (copy.getStatus() != CopyStatus.AVAILABLE) {
+			throw new BusinessException("Copy " + copy.getId() + " is not available, current status is " + copy.getStatus());
+		}
+
+		reservationRepository.findFirstByBookIdAndMemberIdAndStatus(bookId, member.getId(), ReservationStatus.READY)
+				.ifPresent(ready -> {
+					throw new BusinessException("Copy " + ready.getHeldCopy().getId()
+							+ " of this book is already held for this member, issue that copy instead");
+				});
+
+		reservationRepository.findFirstByBookIdAndMemberIdAndStatus(bookId, member.getId(), ReservationStatus.WAITING)
+				.ifPresent(waiting -> waiting.setStatus(ReservationStatus.FULFILLED));
 	}
 
 	@Transactional(readOnly = true)

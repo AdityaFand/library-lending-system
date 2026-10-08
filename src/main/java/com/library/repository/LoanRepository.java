@@ -23,6 +23,8 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
 	boolean existsByMemberIdAndReturnDateIsNullAndDueDateBefore(Long memberId, LocalDate date);
 
+	boolean existsByMemberIdAndCopyBookIdAndReturnDateIsNull(Long memberId, Long bookId);
+
 	@Query("""
 			select l.member.id as memberId,
 			       count(l) as openLoans,

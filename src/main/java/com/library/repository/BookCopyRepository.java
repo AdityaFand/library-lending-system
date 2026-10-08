@@ -26,6 +26,8 @@ public interface BookCopyRepository extends JpaRepository<BookCopy, Long> {
 
 	Page<BookCopy> findByBookIdAndStatus(Long bookId, CopyStatus status, Pageable pageable);
 
+	boolean existsByBookIdAndStatus(Long bookId, CopyStatus status);
+
 	void deleteByBookId(Long bookId);
 
 	@Query("""
