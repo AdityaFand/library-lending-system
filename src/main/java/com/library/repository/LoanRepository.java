@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -46,6 +47,23 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
 	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
 	Optional<Loan> findWithDetailsById(Long id);
+
+	@Query("""
+			select l.id from Loan l
+			where l.status = com.library.enums.LoanStatus.ACTIVE and l.dueDate < :today
+			order by l.id
+			""")
+	List<Long> findOverdueCandidateIds(@Param("today") LocalDate today);
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("""
+			update Loan l set l.status = com.library.enums.LoanStatus.OVERDUE
+			where l.id = :id and l.status = com.library.enums.LoanStatus.ACTIVE
+			""")
+	int markOverdueIfActive(@Param("id") Long id);
+
+	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
+	List<Loan> findByIdIn(Collection<Long> ids);
 
 	@Override
 	@EntityGraph(attributePaths = { "copy", "copy.book", "member" })
